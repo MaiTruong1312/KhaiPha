@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full bg-gray-100">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bảng Điều Khiển Dự Đoán Giá Vàng</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+      /* CSS tùy chỉnh cho tab */
+      .tab-content,
+      .chart-tab-content {
+        display: none;
+      }
+      /* Style cho tab link đang active */
+      button.tab-link.active,
+      button.chart-tab-link.active,
+      a.tab-link.active {
+        border-bottom-color: #2563eb;
+        border-left-color: #2563eb; /* Cho menu dọc */
+        background-color: #eff6ff; /* Tailwind blue-50 */
+        font-weight: 600;
+      }
+      /* CSS tùy chỉnh cho thanh công cụ của Plotly */
+      .modebar-group {
+        background-color: white !important;
+        display: flex !important; /* Buộc các nút hiển thị trên một hàng */
+        border-radius: 0.5rem !important; /* bo tròn */
+        border: 1px solid #e5e7eb !important; /* viền xám nhạt */
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1),
+          0 2px 4px -2px rgb(0 0 0 / 0.1); /* đổ bóng */
+      }
+      .modebar-btn path {
+        fill: #6b7280 !important; /* màu icon xám */
+        transition: fill 0.2s ease-in-out;
+      }
+      .modebar-btn:hover path {
+        fill: #1d4ed8 !important; /* màu icon xanh đậm khi hover */
+      }
+    </style>
+  </head>
+  <body class="h-full font-sans text-gray-800">
+    <div class="w-full mx-auto p-4 sm:p-6 lg:p-8">
+      <h1 class="text-3xl font-bold text-center text-indigo-700 mb-2">
+        Bảng Điều Khiển Dự Đoán Giá Vàng
+      </h1>
+      <div class="text-center mb-4">
+        <a href="/methodology" class="text-sm text-blue-600 hover:text-blue-800 hover:underline">
+          Tìm hiểu về phương pháp luận & cách diễn giải biểu đồ
+        </a>
+      </div>
+      <div class="text-center mb-8">
+        <a href="/download" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+          </svg>
+          Tải xuống toàn bộ dự án
+        </a>
+      </div>
+
+      <div class="mb-8" id="model-overview">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">
+          Tổng quan Mô Hình
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div
+            class="bg-white p-6 rounded-lg shadow-lg border-l-4 border-blue-600"
+          >
+            <h3
+              class="text-sm font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Mô Hình Tốt Nhất
+            </h3>
+            <p class="text-2xl font-bold text-blue-700 mt-2">
+              {{ model_comparison.best_model }}
+            </p>
+          </div>
+
+          <!-- Dropdown chọn model -->
+          <div class="bg-white p-6 rounded-lg shadow-lg">
+            <label
+              for="model_selector"
+              class="text-sm font-medium text-gray-500 uppercase tracking-wider"
+              >Xem chi tiết cho mô hình</label
+            >
+            <select
+              id="model_selector"
+              name="model_selector"
+              class="mt-2 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-lg rounded-md font-bold"
+              onchange="window.location.href = '/?model=' + this.value"
+            >
+              <option
+                value="Random Forest"
+                {{ 'selected' if selected_model == 'Random Forest' }}
+              >
+                Random Forest
+              </option>
+              <option value="XGBoost" {{ 'selected' if selected_model == 'XGBoost' }}>
+                XGBoost
+              </option>
+            </select>
+          </div>
+
+          <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h3
+              class="text-sm font-medium text-gray-500 uppercase tracking-wider"
+            >
+              Random Forest
+            </h3>
+            <div class="mt-2 space-y-1">
+              <p class="text-lg font-semibold text-gray-700">
+                RMSE:
+                <span class="font-bold text-red-600"
+                  >{{ model_comparison['Random Forest'].RMSE }}</span
+                >
+              </p>
+              <p class="text-lg font-semibold text-gray-700">
+                R-squared:
+                <span class="font-bold text-green-600"
+                  >{{ model_comparison['Random Forest']['R-squared'] }}</span
+                >
+              </p>
+            </div>
+          </div>
+
+          <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h3
+              class="text-sm font-medium text-gray-500 uppercase tracking-wider"
+            >
+              XGBoost
+            </h3>
+            <div class="mt-2 space-y-1">
+              <p class="text-lg font-semibold text-gray-700">
+                RMSE:
+                <span class="font-bold text-red-600"
+                  >{{ model_comparison['XGBoost'].RMSE }}</span
+                >
+              </p>
+              <p class="text-lg font-semibold text-gray-700">
+                R-squared:
+                <span class="font-bold text-green-600"
+                  >{{ model_comparison['XGBoost']['R-squared'] }}</span
+                >
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BỐ CỤC MỚI: 2 CỘT CHÍNH -->
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <!-- CỘT TRÁI: CÁC BIỂU ĐỒ CHÍNH (HIỂN THỊ NỐI TIẾP) -->
+        <div class="lg:col-span-3 space-y-8">
+          <!-- Biểu đồ So sánh Dự đoán -->
+          <div class="bg-white p-6 rounded-lg shadow-lg border">
+            <h3 class="text-xl font-semibold text-slate-700 mb-4">
+              📈 So Sánh Dự Đoán - {{ selected_model }}
+            </h3>
+            <div id="chart-pred" class="w-full h-[550px]"></div>
+          </div>
+
+          <!-- Biểu đồ Phân tích Sai số -->
+          <div class="bg-white p-6 rounded-lg shadow-lg border">
+            <h3 class="text-xl font-semibold text-slate-700 mb-4">
+              🧐 Phân Tích Sai Số - {{ selected_model }}
+            </h3>
+            <div id="chart-residuals" class="w-full h-[400px]"></div>
+          </div>
+
+          <!-- Biểu đồ Lịch sử Giá vàng -->
+          <div class="bg-white p-6 rounded-lg shadow-lg border">
+            <h3 class="text-xl font-semibold text-slate-700 mb-4">
+              📉 Lịch Sử Giá Vàng
+            </h3>
+            <div id="chart-hist" class="w-full h-[550px]"></div>
+          </div>
+        </div>
+
+        <!-- CỘT PHẢI: KHU VỰC ĐIỀU KHIỂN VÀ DỰ ĐOÁN -->
+        <div class="lg:col-span-1 space-y-8">
+          <div class="bg-white rounded-lg shadow-lg overflow-hidden border">
+            <!-- Menu dọc bên trái -->
+            <div class="flex flex-col border-b border-gray-200">
+              <div class="flex flex-col">
+                <a
+                  href="#"
+                  class="tab-link block p-4 text-sm font-medium text-gray-700 hover:bg-gray-50 border-l-4 border-transparent transition"
+                  data-tab="tab-1"
+                  onclick="openTab(event, 'tab-1')"
+                >
+                  📝 Tổng Quan
+                </a>
+                <a
+                  href="#"
+                  class="tab-link block p-4 text-sm font-medium text-gray-700 hover:bg-gray-50 border-l-4 border-transparent transition"
+                  data-tab="tab-2"
+                  onclick="openTab(event, 'tab-2')"
+                >
+                  Dự Đoán Ngày
+                </a>
+                <a
+                  href="#"
+                  class="tab-link block p-4 text-sm font-medium text-gray-700 hover:bg-gray-50 border-l-4 border-transparent transition"
+                  data-tab="tab-3"
+                  onclick="openTab(event, 'tab-3')"
+                >
+                  🌙 Dự Đoán Tháng
+                </a>
+                <a
+                  href="#"
+                  class="tab-link block p-4 text-sm font-medium text-gray-700 hover:bg-gray-50 border-l-4 border-transparent transition"
+                  data-tab="tab-4"
+                  onclick="openTab(event, 'tab-4')"
+                >
+                  ℹ️ Thông tin Yếu tố
+                </a>
+                <a
+                  href="#"
+                  class="tab-link block p-4 text-sm font-medium text-gray-700 hover:bg-gray-50 border-l-4 border-transparent transition"
+                  data-tab="tab-5"
+                  onclick="openTab(event, 'tab-5')"
+                >
+                  ⚙️ Siêu tham số
+                </a>
+              </div>
+            </div>
+
+            <!-- Nội dung tab bên phải -->
+            <div class="p-6">
+              <div id="tab-1" class="tab-content space-y-4">
+                <h3 class="text-lg font-semibold text-indigo-600 mb-2">
+                  Dự Đoán Với Mô Hình AI
+                </h3>
+                <p class="text-sm text-gray-600">
+                  Chức năng dự đoán trong tab "Dự Đoán Ngày" và "Dự Đoán Tháng"
+                  hiện sử dụng mô hình
+                  <strong>{{ model_comparison.best_model }}</strong>
+                  đã được huấn luyện.
+                </p>
+                <p class="text-xs text-gray-500 mt-2">
+                  Mô hình sẽ tự động tạo đặc trưng và dự đoán giá cho các ngày
+                  trong tương lai một cách lặp đi lặp lại.
+                </p>
+              </div>
+
+              <div id="tab-2" class="tab-content">
+                <form action="/predict_day" method="POST" class="space-y-4">
+                  <input type="hidden" name="selected_model" value="{{ selected_model }}">
+                  <div>
+                    <label
+                      for="date_input"
+                      class="block text-sm font-medium text-gray-700"
+                      >Chọn ngày</label
+                    >
+                    <input
+                      type="date"
+                      id="date_input"
+                      name="date_input"
+                      value="{{ defaults.date_input }}"
+                      class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label
+                      for="ty_gia"
+                      class="block text-sm font-medium text-gray-700"
+                      >Tỷ giá USD/VND</label
+                    >
+                    <input
+                      type="number"
+                      step="0.01"
+                      id="ty_gia"
+                      name="ty_gia"
+                      value="{{ defaults.ty_gia }}"
+                      class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label
+                      for="so_chi"
+                      class="block text-sm font-medium text-gray-700"
+                      >Số chỉ / 1 oz</label
+                    >
+                    <input
+                      type="number"
+                      step="0.00001"
+                      id="so_chi"
+                      name="so_chi"
+                      value="{{ defaults.so_chi }}"
+                      class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition"
+                  >
+                    Dự đoán
+                  </button>
+                </form>
+
+                {% if prediction_result_day %}
+                <div
+                  class="mt-6 p-4 bg-green-50 border border-green-300 text-green-800 rounded-md shadow-sm"
+                >
+                  <h4 class="font-bold text-lg mb-2">
+                    🔮 Kết quả cho ngày {{ prediction_result_day.date }}:
+                  </h4>
+                  <ul class="list-disc list-inside space-y-1">
+                    <li>
+                      Giá dự đoán:
+                      <strong>{{ prediction_result_day.usd_oz }} USD/oz</strong>
+                    </li>
+                    <li>
+                      Quy đổi:
+                      <strong
+                        >~ {{ prediction_result_day.vnd_chi }} VND/chỉ</strong
+                      >
+                    </li>
+                  </ul>
+                  <small class="block mt-2 text-xs text-green-700"
+                    >*Dựa trên tỷ giá {{ prediction_result_day.ty_gia }}
+                    VND/USD.</small
+                  >
+                </div>
+                {% endif %} {% if error_day %}
+                <div
+                  class="mt-6 p-4 bg-red-50 border border-red-300 text-red-800 rounded-md shadow-sm"
+                >
+                  <strong class="font-bold">Lỗi:</strong> {{ error_day }}
+                </div>
+                {% endif %}
+              </div>
+
+              <div id="tab-3" class="tab-content">
+                <form action="/predict_month" method="POST" class="space-y-4">
+                  <input type="hidden" name="selected_model" value="{{ selected_model }}">
+                  <div>
+                    <label
+                      for="month_input"
+                      class="block text-sm font-medium text-gray-700"
+                      >Chọn tháng</label
+                    >
+                    <input
+                      type="month"
+                      id="month_input"
+                      name="month_input"
+                      value="{{ defaults.month_input }}"
+                      class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      required
+                    />
+                  </div>
+                  <input
+                    type="hidden"
+                    name="ty_gia"
+                    value="{{ defaults.ty_gia }}"
+                  />
+                  <input
+                    type="hidden"
+                    name="so_chi"
+                    value="{{ defaults.so_chi }}"
+                  />
+                  <p class="text-xs text-gray-500">
+                    (Sử dụng Tỷ giá: {{ "%.0f"|format(defaults.ty_gia|float) }}
+                    và Số chỉ: {{ "%.5f"|format(defaults.so_chi|float) }} từ tab
+                    'Dự Đoán Ngày')
+                  </p>
+                  <button
+                    type="submit"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition"
+                  >
+                    Dự đoán
+                  </button>
+                </form>
+
+                {% if prediction_result_month %}
+                <div
+                  class="mt-6 p-4 bg-green-50 border border-green-300 text-green-800 rounded-md shadow-sm"
+                >
+                  <h4 class="font-bold text-lg mb-2">
+                    🔮 Kết quả TB cho tháng {{ prediction_result_month.month }}:
+                  </h4>
+                  <ul class="list-disc list-inside space-y-1">
+                    <li>
+                      Giá TB:
+                      <strong
+                        >{{ prediction_result_month.usd_oz }} USD/oz</strong
+                      >
+                    </li>
+                    <li>
+                      Quy đổi:
+                      <strong
+                        >~ {{ prediction_result_month.vnd_chi }} VND/chỉ</strong
+                      >
+                    </li>
+                  </ul>
+                  <small class="block mt-2 text-xs text-green-700"
+                    >*Dựa trên tỷ giá {{ prediction_result_month.ty_gia }}
+                    VND/USD.</small
+                  >
+                </div>
+                {% endif %} {% if error_month %}
+                <div
+                  class="mt-6 p-4 bg-red-50 border border-red-300 text-red-800 rounded-md shadow-sm"
+                >
+                  <strong class="font-bold">Lỗi:</strong> {{ error_month }}
+                </div>
+                {% endif %}
+              </div>
+
+              <div id="tab-4" class="tab-content space-y-4">
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">
+                  Các Yếu Tố Đầu Vào
+                </h3>
+                <p class="text-sm text-gray-600 mb-4">
+                  Mô hình sử dụng các yếu tố (đặc trưng) sau đây để đưa ra dự
+                  đoán:
+                </p>
+                <ul
+                  class="space-y-3 text-sm bg-gray-50 p-3 rounded-md border"
+                >
+                  {% for feature in features_list %}
+                  <li class="font-mono text-xs text-gray-800">
+                    {{ feature }}
+                  </li>
+                  {% endfor %}
+                </ul>
+                <div class="mt-4 pt-4 border-t">
+                  <h4 class="font-semibold text-gray-800 mb-2">Chú giải:</h4>
+                  <ul class="space-y-2 text-xs text-gray-700">
+                    <li>
+                      <strong class="text-gray-900">lagX:</strong> Giá trị của X
+                      ngày trước.
+                    </li>
+                    <li>
+                      <strong class="text-gray-900">roll_mean_X:</strong> Giá
+                      trị trung bình trong X ngày gần nhất.
+                    </li>
+                    <li>
+                      <strong class="text-gray-900">roll_std_X:</strong> Độ lệch
+                      chuẩn trong X ngày gần nhất (đo lường độ biến động).
+                    </li>
+                    <li>
+                      <strong class="text-gray-900">month/day_of_...:</strong>
+                      Các yếu tố liên quan đến thời gian (tháng, ngày trong
+                      tuần/năm).
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div id="tab-5" class="tab-content space-y-4">
+                <h3 class="text-lg font-semibold text-indigo-600 mb-2">
+                  Siêu tham số (Hyperparameters)
+                </h3>
+                <p class="text-sm text-gray-600 mb-4">
+                  Đây là các thiết lập đã được sử dụng để huấn luyện mô hình
+                  <strong
+                    >{{ model_comparison.best_model }}</strong
+                  >:
+                </p>
+                <div class="text-xs bg-gray-50 p-3 rounded-md border">
+                  {% for key, value in model_comparison.best_model_hyperparameters.items() %}
+                  <div class="flex justify-between font-mono py-1">
+                    <span class="text-gray-600">{{ key }}:</span>
+                    <span class="font-bold text-indigo-700 text-right"
+                      >{{ value }}</span
+                    >
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BỐ CỤC MỚI: HÀNG DÀNH CHO FEATURE IMPORTANCE -->
+      <div class="mt-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">
+          Phân Tích Yếu Tố
+        </h2>
+        <!-- Thay đổi grid để 2 biểu đồ chiếm toàn bộ chiều rộng -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div class="bg-white p-6 rounded-lg shadow-lg border">
+            <div id="chart-fi-rf" class="w-full h-[500px]"></div>
+          </div>
+          <div class="bg-white p-6 rounded-lg shadow-lg border">
+            <div id="chart-fi-xgb" class="w-full h-[500px]"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // --- LOGIC TAB ---
+      function openTab(evt, tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tab-content");
+        for (i = 0; i < tabcontent.length; i++) {
+          tabcontent[i].style.display = "none";
+        }
+        tablinks = document.getElementsByClassName("tab-link");
+        for (i = 0; i < tablinks.length; i++) {
+          tablinks[i].classList.remove("active");
+        }
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.classList.add("active");
+      }
+
+      // --- LOGIC KÍCH HOẠT SAU KHI TẢI TRANG ---
+      document.addEventListener("DOMContentLoaded", function () {
+
+        // --- LOGIC RENDER BIỂU ĐỒ PLOTLY ---
+        try {
+          const config = { responsive: true };
+          Plotly.newPlot(
+            "chart-hist",
+            {{ chart_hist_json | safe }},
+            config
+          );
+          Plotly.newPlot(
+            "chart-pred",
+            {{ chart_pred_json | safe }},
+            config
+          );
+          Plotly.newPlot(
+            "chart-residuals",
+            {{ chart_residuals_json | safe }},
+            config
+          );
+          Plotly.newPlot(
+            "chart-fi-rf",
+            {{ chart_fi_rf_json | safe }},
+            config
+          );
+          Plotly.newPlot(
+            "chart-fi-xgb",
+            {{ chart_fi_xgb_json | safe }},
+            config
+          );
+        } catch (e) {
+          console.error("Lỗi khi render biểu đồ Plotly:", e);
+        }
+
+        // --- LOGIC KÍCH HOẠT TAB MẶC ĐỊNH ---
+        // Mở tab dự đoán nếu có kết quả trả về, nếu không thì mở tab tổng quan
+        var activeTab = "{{ active_tab | default('tab-1') }}";
+        var tabLink = document.querySelector(
+          '.tab-link[data-tab="' + activeTab + '"]'
+        );
+
+        if (tabLink) {
+          tabLink.click();
+        } else {
+          document.querySelector(".tab-link").click();
+        }
+      });
+    </script>
+  </body>
+</html>

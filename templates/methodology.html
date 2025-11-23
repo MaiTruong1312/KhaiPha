@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full bg-gray-100">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phương Pháp Luận Chi Tiết - Dự Đoán Giá Vàng</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style
+      id="MathJax-script"
+      async
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    ></style>
+    <style>
+      /* Định dạng cho khối code */
+      pre {
+        background-color: #1f2937; /* Tailwind gray-800 */
+        color: #f9fafb; /* Tailwind gray-50 */
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        overflow-x: auto; /* Cho phép cuộn ngang */
+        margin-top: 1rem;
+        font-size: 0.875rem; /* text-sm */
+        line-height: 1.4;
+      }
+      code {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
+          monospace;
+      }
+      .code-label {
+        color: #9ca3af; /* Tailwind gray-400 */
+        font-style: italic;
+        margin-bottom: 0.5rem;
+        display: block;
+      }
+    </style>
+  </head>
+  <body class="h-full font-sans text-gray-800">
+    <div class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div class="bg-white p-8 rounded-lg shadow-lg">
+        <div class="flex justify-between items-center border-b pb-4 mb-6">
+          <h1 class="text-3xl font-bold text-gray-900">
+            Chi Tiết Phương Pháp Luận & Code Demo
+          </h1>
+          <a
+            href="/"
+            class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition"
+          >
+            ← Quay lại Bảng điều khiển
+          </a>
+        </div>
+
+        <!-- KIẾN TRÚC HỆ THỐNG -->
+        <section>
+          <h2 class="text-2xl font-semibold text-gray-800 mb-3">
+            Tổng Quan Kiến Trúc Hệ Thống
+          </h2>
+          <p>
+            Hệ thống được xây dựng theo một luồng xử lý MLOps cơ bản, tách biệt
+            rõ ràng giữa quá trình huấn luyện và triển khai ứng dụng.
+          </p>
+          <ol class="list-decimal list-inside mt-2 space-y-3 pl-4">
+            <li>
+              <strong>Tiền xử lý (`preprocess_data.py`):</strong> Tải dữ liệu
+              thô từ nhiều nguồn (giá vàng/bạc, chỉ số GPRD), gộp chúng lại, tạo
+              ra các đặc trưng phức hợp và lưu thành một file
+              `preprocessed_gold_data.csv` sạch sẽ.
+            </li>
+            <li>
+              <strong>Huấn luyện (`train_models.py`):</strong> Script này đọc
+              file đã tiền xử lý, chia dữ liệu, huấn luyện đồng thời hai mô hình
+              (Random Forest và XGBoost), đánh giá và lưu lại tất cả các "hiện
+              vật" cần thiết (models, scaler, kết quả,...) vào thư mục
+              `models/`.
+            </li>
+            <li>
+              <strong>Ứng dụng Web (`app.py`):</strong> Ứng dụng Flask khởi
+              động, tải một lần duy nhất tất cả các hiện vật đã lưu. Nó không
+              thực hiện huấn luyện lại mà chỉ sử dụng các model đã được huấn
+              luyện để phục vụ việc hiển thị, phân tích và mô phỏng dự đoán.
+            </li>
+          </ol>
+        </section>
+
+        ---
+
+        <div class="space-y-10 text-gray-700 leading-relaxed">
+          <section>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-3">
+              1. Mục Tiêu và Lựa chọn Mô hình
+            </h2>
+            <p>
+              Mục tiêu là xây dựng và so sánh hai mô hình hồi quy mạnh mẽ:
+              **Random Forest** và **XGBoost** để dự đoán Giá Vàng (USD/oz). Cả
+              hai đều thuộc nhóm **Ensemble Methods** (Phương pháp tập hợp), nổi
+              trội trong việc xử lý dữ liệu chuỗi thời gian khi được biến đổi
+              thành bài toán hồi quy truyền thống.
+            </p>
+          </section>
+
+          ---
+
+          <section>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-3">
+              2. Dữ Liệu và Tiền Xử Lý (Data Preprocessing)
+            </h2>
+            <p>
+              Quy trình làm sạch được thực hiện cẩn thận để đảm bảo tính liên
+              tục của dữ liệu đầu vào.
+            </p>
+            <ul class="list-disc list-inside mt-2 space-y-3 pl-4">
+              <li>
+                <strong>Làm sạch và Reindex:</strong> Dữ liệu thô được chuyển
+                đổi cột ngày tháng sang định dạng `datetime` và được **reindex**
+                theo dải ngày liên tục để phát hiện các ngày thiếu.
+              </li>
+              <li>
+                <strong>Điền dữ liệu thiếu (`ffill`):</strong> Các ngày cuối
+                tuần/lễ (thường thiếu) được điền bằng giá của ngày giao dịch gần
+                nhất trước đó (`forward fill`).
+              </li>
+              <li>
+                <strong>Gộp Dữ liệu:</strong> Dữ liệu giá vàng/bạc được gộp với
+                dữ liệu Rủi ro Địa chính trị (GPRD) bằng phương pháp **`inner
+                merge`** để loại bỏ các ngày không có đủ thông tin.
+              </li>
+            </ul>
+
+            <span class="code-label"
+              >Code Demo: Xử lý giá thiếu (`train_models.py`)</span
+            >
+            <pre><code># Tạo một dải ngày liên tục (bao gồm cả cuối tuần)
+all_days = pd.date_range(start=start_date, end=end_date, freq='D')
+
+# Reindex DataFrame để bao gồm tất cả các ngày
+df_processed = df_processed.reindex(all_days)
+
+# Điền giá trị NaN bằng cách sử dụng giá trị hợp lệ cuối cùng (forward fill)
+df_processed['GOLD_PRICE'] = df_processed['GOLD_PRICE'].fillna(method='ffill')</code></pre>
+
+            <span class="code-label"
+              >Code Demo: Gộp dữ liệu GPRD (`preprocess_data.py`)</span
+            >
+            <pre><code># Gộp 'inner' để đảm bảo chỉ giữ lại những ngày có cả hai loại dữ liệu
+df_merged = pd.merge(
+    df_gold, 
+    df_gprd, 
+    left_on='DATE', 
+    right_on='date', 
+    how='inner'
+)</code></pre>
+          </section>
+
+          ---
+
+          <section>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-3">
+              3. Tạo Đặc Trưng (Feature Engineering)
+            </h2>
+            <p>
+              Đặc trưng là xương sống của mô hình. Tất cả các đặc trưng đều sử
+              dụng hàm **`shift(1)`** để đảm bảo tính thời gian (chỉ sử dụng
+              thông tin quá khứ).
+            </p>
+            <ul class="list-disc list-inside mt-2 space-y-3 pl-4">
+              <li>
+                **Giá Trễ (`lagX`):** Giá của ngày trước đó (lag 1), 7 ngày
+                trước (lag 7), và 30 ngày trước (lag 30).
+              </li>
+              <li>
+                **Thống kê Trượt (`roll_mean_X`, `roll_std_X`):** Giá trị trung
+                bình trượt và độ lệch chuẩn trượt được tính toán cho các khung
+                thời gian 7 và 30 ngày. Độ lệch chuẩn trượt là yếu tố đo lường
+                **Độ Biến động (Volatility)**.
+              </li>
+              <li>
+                **Tỷ lệ Vàng/Bạc (`GS_RATIO`):** Được tính để đưa một yếu tố thị
+                trường liên quan vào mô hình.
+              </li>
+            </ul>
+            <p class="mt-3">
+              Việc sử dụng `shift(1)` là cực kỳ quan trọng trong các bài toán
+              chuỗi thời gian để tránh "rò rỉ dữ liệu" (data leakage), tức là
+              dùng thông tin của tương lai để dự đoán cho chính nó.
+            </p>
+
+            <span class="code-label"
+              >Code Demo: Tạo Đặc trưng chính (`train_models.py`)</span
+            >
+            <pre><code># y là GOLD_PRICE
+X['GOLD_PRICE_lag1'] = y.shift(1)
+X['GOLD_PRICE_lag7'] = y.shift(7)
+X['GOLD_PRICE_lag30'] = y.shift(30)
+
+X['GOLD_PRICE_roll_mean_7'] = y.shift(1).rolling(window=7).mean()
+X['GOLD_PRICE_roll_std_30'] = y.shift(1).rolling(window=30).std()
+
+# Đặc trưng thời gian
+X['month'] = X.index.month
+X['day_of_week'] = X.index.dayofweek</code></pre>
+
+            <span class="code-label"
+              >Code Demo: Tạo tỷ lệ Vàng/Bạc (`preprocess_data.py`)</span
+            >
+            <pre><code># Thêm 1e-6 để tránh lỗi chia cho 0
+df_feat['GS_RATIO'] = df_feat['GOLD_PRICE'].shift(1) / (df_feat['SILVER_PRICE'].shift(1) + 1e-6)</code></pre>
+          </section>
+
+          ---
+
+          <section>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-3">
+              4. Huấn Luyện Mô Hình và Chuẩn Hóa
+            </h2>
+            <p>
+              Dữ liệu được chia tuần tự, sau đó chuẩn hóa trước khi huấn luyện
+              để tối ưu hóa hiệu suất của mô hình.
+            </p>
+
+            <h3 class="text-lg font-semibold text-gray-800 mt-4 mb-2">
+              4.1. Phân chia và Chuẩn hóa Dữ liệu
+            </h3>
+            <p class="mb-2">
+              Việc chia dữ liệu theo đúng thứ tự thời gian là bắt buộc. 80% dữ
+              liệu cũ hơn được dùng để huấn luyện và 20% dữ liệu mới nhất được
+              dùng để kiểm tra, mô phỏng đúng kịch bản sử dụng trong thực tế.
+            </p>
+            <p>
+              Training và 20% Test theo thứ tự thời gian (`shuffle=False`).
+              **`StandardScaler`** được sử dụng để chuẩn hóa (biến đổi các đặc
+              trưng có giá trị trung bình μ=0 và độ lệch chuẩn σ=1).
+            </p>
+
+            <span class="code-label"
+              >Code Demo: Chia và Chuẩn hóa (`train_models.py`)</span
+            >
+            <pre><code># Dành 20% cuối cùng cho tập test (chia tuần tự)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+
+# Chuẩn hóa dữ liệu
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train) # Fit và Transform trên Training
+X_test_scaled = scaler.transform(X_test)      # Chỉ Transform trên Test</code></pre>
+
+            <h3 class="text-lg font-semibold text-gray-800 mt-4 mb-2">
+              4.2. Huấn luyện các Mô hình
+            </h3>
+            <p>
+              Các mô hình Random Forest và XGBoost được khởi tạo và huấn luyện
+              trên tập dữ liệu đã được chuẩn hóa.
+            </p>
+            <span class="code-label"
+              >Code Demo: Khởi tạo và Huấn luyện (`train_models.py`)</span
+            >
+            <pre><code># Random Forest
+model_rf = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+model_rf.fit(X_train_scaled, y_train)
+
+# XGBoost
+model_xgb = xgb.XGBRegressor(objective='reg:squarederror', n_estimators=100, random_state=42, n_jobs=-1)
+model_xgb.fit(X_train_scaled, y_train)</code></pre>
+          </section>
+
+          ---
+
+          <section>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-3">
+              5. Đánh giá và Lựa chọn Mô hình
+            </h2>
+            <p>
+              Hai chỉ số chính được sử dụng để đo lường hiệu suất của mô hình
+              trên tập dữ liệu Test:
+            </p>
+            <ul class="list-disc list-inside mt-2 space-y-3 pl-4">
+              <li>
+                <strong>RMSE (Root Mean Squared Error):</strong> Đo lường sai
+                lệch trung bình giữa giá dự đoán và giá thực tế, tính theo đơn
+                vị của biến mục tiêu (USD).
+                <br />
+                <i
+                  >Công thức:
+                  <span class="font-mono"
+                    >\( \text{RMSE} = \sqrt{\frac{1}{n}\sum_{i=1}^{n}(y_i -
+                    \hat{y}_i)^2} \)</span
+                  ></i
+                >
+                <br />
+                Chỉ số RMSE càng thấp, mô hình càng chính xác.
+              </li>
+              <li>
+                <strong>R-squared (R² - Hệ số xác định):</strong> Cho biết mức
+                độ các đặc trưng đầu vào có thể giải thích cho sự biến thiên của
+                giá vàng.
+                <br />
+                <i
+                  >Công thức:
+                  <span class="font-mono"
+                    >\( R^2 = 1 - \frac{\sum_{i=1}^{n}(y_i -
+                    \hat{y}_i)^2}{\sum_{i=1}^{n}(y_i - \bar{y})^2} \)</span
+                  ></i
+                >
+                <br />
+                Chỉ số R² càng gần 1, mô hình càng giải thích tốt dữ liệu.
+              </li>
+            </ul>
+            <p class="mt-3">
+              Mô hình có chỉ số <strong>RMSE thấp hơn</strong> trên tập Test
+              được chọn là `best_model` và được sử dụng làm mặc định trong ứng
+              dụng.
+            </p>
+            <span class="code-label"
+              >Code Demo: So sánh và chọn model tốt nhất
+              (`train_models.py`)</span
+            >
+            <pre><code># So sánh dựa trên RMSE
+best_model_name = 'Random Forest' if rmse_rf <= rmse_xgb else 'XGBoost'
+best_model_obj = model_rf if best_model_name == 'Random Forest' else model_xgb</code></pre>
+          </section>
+
+          ---
+
+          <section>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-3">
+              5. Logic Dự Đoán Ngày/Tháng (Mô phỏng trong `app.py`)
+            </h2>
+            <p class="mb-2">
+              Để mô phỏng chức năng dự đoán ngày/tháng, ứng dụng sử dụng một hàm
+              đơn giản hóa là **`simulate_future_price`** dựa trên xu hướng giá
+              30 ngày gần nhất và một yếu tố ngẫu nhiên nhỏ.
+            </p>
+            <p>
+              <strong>Cách tiếp cận nâng cao (Recursive Forecasting):</strong>
+              Trong dự án thực tế, để dự đoán ngày $t+1$, chúng ta cần sử dụng
+              giá dự đoán của ngày $t$ để tạo ra các đặc trưng trễ mới (ví dụ:
+              `GOLD_PRICE_lag1` của $t+1$ chính là giá dự đoán của $t$). Quá
+              trình này được gọi là **Recursive Forecasting**.
+            </p>
+
+            <h3 class="text-lg font-semibold text-gray-800 mt-4 mb-2">
+              5.1. Mô phỏng Dự đoán Giá (cho mục đích demo)
+            </h3>
+            <span class="code-label"
+              >Code Demo: Hàm `simulate_future_price` (`app.py`)</span
+            >
+            <pre><code>def simulate_future_price(days_diff):
+    """Mô phỏng giá trong tương lai dựa trên xu hướng 30 ngày cuối."""
+    
+    # Lấy xu hướng 30 ngày cuối (đã tính trong train_models.py)
+    trend_factor = latest_data['trend_30_day'] * days_diff
+    
+    # Yếu tố ngẫu nhiên nhỏ
+    random_factor = (np.random.rand() - 0.45) * 0.5 
+    
+    # Tính giá dự đoán
+    predicted_price_usd_oz = max(0, latest_data['price'] + trend_factor + (random_factor * days_diff * 0.1))
+    
+    return predicted_price_usd_oz</code></pre>
+
+            <h3 class="text-lg font-semibold text-gray-800 mt-4 mb-2">
+              5.2. Chuyển đổi sang VND/Chỉ
+            </h3>
+            <p>
+              Giá USD/oz dự đoán sau đó được chuyển đổi sang VND/chỉ bằng cách
+              sử dụng tỷ giá và hệ số quy đổi mặc định.
+            </p>
+            <span class="code-label"
+              >Code Demo: Hàm `convert_to_vnd_chi` (`app.py`)</span
+            >
+            <pre><code>def convert_to_vnd_chi(gia_usd_oz, ty_gia, so_chi):
+    gia_vnd_oz = gia_usd_oz * ty_gia
+    gia_vnd_chi = gia_vnd_oz / so_chi
+    return gia_vnd_chi
+
+# Ví dụ hệ số mặc định: 1 oz ≈ 8.29426 chỉ</code></pre>
+          </section>
+
+          ---
+
+          <section>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-3">
+              6. Lưu trữ Hiện vật (Artifacts) cho Ứng dụng
+            </h2>
+            <p>
+              Quá trình huấn luyện không chỉ tạo ra các file model (`.pkl`) mà
+              còn tạo ra một loạt các file JSON chứa dữ liệu đã được tính toán
+              sẵn. Cách tiếp cận này giúp ứng dụng Flask khởi động và phản hồi
+              cực kỳ nhanh chóng vì không cần phải tính toán lại.
+            </p>
+            <ul class="list-disc list-inside mt-2 space-y-3 pl-4">
+              <li>
+                <strong>`model_rf.pkl`, `model_xgb.pkl`</strong>: Các đối tượng
+                model đã được huấn luyện.
+              </li>
+              <li>
+                <strong>`scaler.pkl`</strong>: Đối tượng `StandardScaler` đã
+                `fit` trên tập huấn luyện, cần thiết để biến đổi dữ liệu đầu vào
+                mới.
+              </li>
+              <li>
+                <strong>`model_comparison.json`</strong>: Lưu kết quả RMSE, R²
+                và tên model tốt nhất.
+              </li>
+              <li>
+                <strong
+                  >`test_chart_data.json`, `residual_chart_data.json`</strong
+                >: Dữ liệu đã được chuẩn bị sẵn cho các biểu đồ so sánh và phân
+                tích sai số, giúp trang web tải nhanh hơn.
+              </li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
