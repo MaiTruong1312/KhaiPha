@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full bg-gray-100">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>So Sánh Chuyên Sâu: XGBoost vs. Random Forest - Dự Đoán Giá Vàng</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></style>
+    <style>
+        pre {
+            background-color: #1f2937;
+            color: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+        code {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        }
+        .code-label {
+            color: #9ca3af;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+    </style>
+</head>
+<body class="h-full font-sans text-gray-800">
+    <div class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+        <div class="bg-white p-8 rounded-lg shadow-lg">
+            <div class="flex justify-between items-center border-b pb-4 mb-6">
+                <h1 class="text-3xl font-bold text-gray-900">
+                    Phân Tích Sâu: XGBoost vs. Random Forest
+                </h1>
+                <a href="/" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition">
+                    ← Quay lại Bảng điều khiển
+                </a>
+            </div>
+
+            <div class="space-y-10 text-gray-700 leading-relaxed">
+                <section>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">1. Giới Thiệu Chung</h2>
+                    <p>
+                        Trong dự án này, chúng ta sử dụng hai thuật toán Ensemble Learning (Học tập tập hợp) hàng đầu là <strong>Random Forest</strong> và <strong>XGBoost</strong> để giải quyết bài toán hồi quy (dự đoán giá vàng). Cả hai đều kết hợp nhiều "mô hình yếu" (cụ thể là cây quyết định) để tạo ra một "mô hình mạnh" duy nhất có khả năng dự đoán vượt trội. Tuy nhiên, cách chúng "học" và kết hợp kết quả lại hoàn toàn khác nhau.
+                    </p>
+                </section>
+
+                ---
+
+                <section>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">2. Random Forest: Sức mạnh của "Trí tuệ Đám đông"</h2>
+                    <h3 class="text-xl font-semibold text-gray-800 mt-4 mb-2">Lý Thuyết Hoạt Động (Bagging)</h3>
+                    <p>
+                        Random Forest hoạt động dựa trên nguyên tắc <strong>Bootstrap Aggregating (Bagging)</strong>. Hãy tưởng tượng bạn cần đưa ra một quyết định tài chính quan trọng. Thay vì chỉ hỏi một chuyên gia, bạn hỏi hàng trăm chuyên gia khác nhau, mỗi người có một góc nhìn riêng, sau đó bạn lấy ý kiến trung bình của họ.
+                    </p>
+                    <ul class="list-disc list-inside mt-2 space-y-3 pl-4">
+                        <li><strong>Bootstrap:</strong> Từ tập dữ liệu huấn luyện ban đầu, thuật toán tạo ra nhiều tập dữ liệu con bằng cách lấy mẫu ngẫu nhiên có lặp lại.</li>
+                        <li><strong>Random Subset of Features:</strong> Trên mỗi tập dữ liệu con, một cây quyết định được xây dựng. Nhưng ở mỗi nút của cây, nó không xem xét tất cả các đặc trưng mà chỉ chọn một tập con ngẫu nhiên. Điều này đảm bảo các cây không bị quá giống nhau.</li>
+                        <li><strong>Aggregating (Tập hợp):</strong> Sau khi có hàng trăm cây quyết định độc lập, để dự đoán một giá trị mới, thuật toán sẽ lấy kết quả dự đoán từ mỗi cây và tính trung bình cộng. Đây chính là kết quả cuối cùng.</li>
+                    </ul>
+                    <p class="mt-3">
+                        Cách tiếp cận này giúp Random Forest rất mạnh mẽ trong việc <strong>giảm phương sai (variance)</strong> và chống lại hiện tượng <strong>overfitting</strong>.
+                    </p>
+                    <h3 class="text-xl font-semibold text-gray-800 mt-4 mb-2">Trong Project Này</h3>
+                    <p>
+                        Chúng ta sử dụng `RandomForestRegressor` từ thư viện Scikit-learn. Mô hình được huấn luyện trên dữ liệu đã chuẩn hóa.
+                    </p>
+                    <span class="code-label">Code Demo: Khởi tạo và Huấn luyện Random Forest (`train_models.py`)</span>
+                    <pre><code># Khởi tạo mô hình với 100 cây quyết định
+model_rf = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+
+# Huấn luyện trên dữ liệu đã được chia và chuẩn hóa
+model_rf.fit(X_train_scaled, y_train)</code></pre>
+                </section>
+
+                ---
+
+                <section>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">3. XGBoost: Học từ Lỗi Sai</h2>
+                    <h3 class="text-xl font-semibold text-gray-800 mt-4 mb-2">Lý Thuyết Hoạt Động (Boosting)</h3>
+                    <p>
+                        XGBoost (eXtreme Gradient Boosting) hoạt động dựa trên nguyên tắc <strong>Boosting</strong>, cụ thể là Gradient Boosting. Nếu Random Forest giống như một cuộc họp của các chuyên gia độc lập, thì XGBoost giống như một dây chuyền sản xuất nơi mỗi người thợ sau sẽ sửa lỗi cho người thợ trước.
+                    </p>
+                    <ul class="list-disc list-inside mt-2 space-y-3 pl-4">
+                        <li><strong>Tuần tự (Sequential):</strong> Mô hình xây dựng các cây quyết định một cách tuần tự. Cây đầu tiên đưa ra một dự đoán ban đầu.</li>
+                        <li><strong>Học trên "Phần dư" (Residuals):</strong> Cây thứ hai không học trên dữ liệu gốc, mà học cách dự đoán "lỗi sai" (phần dư) của cây đầu tiên. Kết quả dự đoán mới sẽ là (dự đoán cây 1 + dự đoán cây 2).</li>
+                        <li><strong>Gradient Descent:</strong> Quá trình này được tối ưu hóa bằng thuật toán Gradient Descent, giúp mô hình nhanh chóng tìm ra cách giảm thiểu lỗi sai một cách hiệu quả nhất. Mỗi cây mới được thêm vào để "đi xuống" con dốc của hàm lỗi.</li>
+                        <li><strong>"eXtreme":</strong> XGBoost là một phiên bản "cực đỉnh" của Gradient Boosting với các cải tiến quan trọng như <strong>Regularization (Chuẩn hóa L1, L2)</strong> để chống overfitting, khả năng xử lý giá trị thiếu và tối ưu hóa song song (tính toán các nút trong một cây), giúp nó vừa chính xác vừa nhanh.</li>
+                    </ul>
+                    <h3 class="text-xl font-semibold text-gray-800 mt-4 mb-2">Trong Project Này</h3>
+                    <p>
+                        Chúng ta sử dụng `XGBRegressor` từ thư viện `xgboost`.
+                    </p>
+                    <span class="code-label">Code Demo: Khởi tạo và Huấn luyện XGBoost (`train_models.py`)</span>
+                    <pre><code># Khởi tạo mô hình với 100 cây, hàm mục tiêu là lỗi bình phương
+model_xgb = xgb.XGBRegressor(objective='reg:squarederror', n_estimators=100, random_state=42, n_jobs=-1)
+
+# Huấn luyện trên cùng tập dữ liệu
+model_xgb.fit(X_train_scaled, y_train)</code></pre>
+                </section>
+
+                ---
+
+                <section>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">4. So Sánh Trực Tiếp</h2>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white border border-gray-200">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="px-6 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tiêu chí</th>
+                                    <th class="px-6 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Random Forest</th>
+                                    <th class="px-6 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">XGBoost</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200">
+                                <tr class="bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap font-medium text-sm text-gray-800" colspan="3"><strong>Kiến trúc & Huấn luyện</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 align-top whitespace-nowrap font-medium">Nguyên tắc cốt lõi</td>
+                                    <td class="px-6 py-4 align-top"><strong>Bagging</strong> (Bootstrap Aggregating): Huấn luyện nhiều cây quyết định <strong>song song</strong> trên các mẫu dữ liệu con (bootstrap samples). Kết quả là trung bình của các cây.</td>
+                                    <td class="px-6 py-4 align-top"><strong>Boosting</strong> (Gradient Boosting): Huấn luyện các cây quyết định một cách <strong>tuần tự</strong>, cây sau được xây dựng để sửa lỗi (residuals) cho các cây trước đó.</td>
+                                </tr>
+                                 <tr>
+                                    <td class="px-6 py-4 align-top whitespace-nowrap font-medium">Tốc độ huấn luyện</td>
+                                    <td class="px-6 py-4 align-top">Nhanh hơn trên CPU đa lõi do các cây có thể được xây dựng hoàn toàn độc lập và song song.</td>
+                                    <td class="px-6 py-4 align-top">Thường chậm hơn vì bản chất tuần tự, nhưng được tối ưu hóa cao về mặt tính toán và có thể tận dụng GPU.</td>
+                                </tr>
+                                <tr class="bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap font-medium text-sm text-gray-800" colspan="3"><strong>Hiệu năng & Tinh chỉnh</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 align-top whitespace-nowrap font-medium">Độ chính xác</td>
+                                    <td class="px-6 py-4 align-top">Rất cao. Thường là một trong những mô hình baseline mạnh nhất và khó bị đánh bại.</td>
+                                    <td class="px-6 py-4 align-top">Thường dẫn đầu về độ chính xác trong các cuộc thi ML, nhưng cần tinh chỉnh cẩn thận để đạt hiệu suất tối đa.</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 align-top whitespace-nowrap font-medium">Chống Overfitting</td>
+                                    <td class="px-6 py-4 align-top">Tốt tự nhiên. Việc lấy trung bình từ nhiều cây ngẫu nhiên đã giảm thiểu overfitting một cách hiệu quả.</td>
+                                    <td class="px-6 py-4 align-top">Dễ bị overfitting hơn nếu `n_estimators` quá lớn, nhưng có các công cụ mạnh mẽ để kiểm soát như <strong>regularization (L1/L2)</strong>, <strong>early stopping</strong>, và `gamma`.</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 align-top whitespace-nowrap font-medium">Siêu tham số (Hyperparameters)</td>
+                                    <td class="px-6 py-4 align-top">Tương đối ít và dễ tinh chỉnh hơn (vd: `n_estimators`, `max_features`, `max_depth`).</td>
+                                    <td class="px-6 py-4 align-top">Rất nhiều và phức tạp hơn, đòi hỏi sự hiểu biết sâu (vd: `learning_rate`, `gamma`, `subsample`, `colsample_bytree`).</td>
+                                </tr>
+                                <tr class="bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap font-medium text-sm text-gray-800" colspan="3"><strong>Xử lý dữ liệu & Giới hạn</strong></td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 align-top whitespace-nowrap font-medium">Chuẩn hóa dữ liệu (Scaling)</td>
+                                    <td class="px-6 py-4 align-top">Không bắt buộc. Miễn nhiễm với việc scale các đặc trưng vì cây quyết định chỉ quan tâm đến thứ tự.</td>
+                                    <td class="px-6 py-4 align-top">Không bắt buộc. Tương tự Random Forest. (Tuy nhiên, việc chuẩn hóa không gây hại).</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 align-top whitespace-nowrap font-medium">Xử lý giá trị thiếu (NaN)</td>
+                                    <td class="px-6 py-4 align-top">Không hỗ trợ sẵn trong Scikit-learn. Cần phải tiền xử lý (impute) trước.</td>
+                                    <td class="px-6 py-4 align-top"><strong>Hỗ trợ sẵn.</strong> Có thể tự học cách rẽ nhánh tối ưu cho các giá trị thiếu.</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 align-top whitespace-nowrap font-medium">Khả năng ngoại suy (Extrapolation)</td>
+                                    <td class="px-6 py-4 align-top">Kém. Không thể dự đoán các giá trị nằm ngoài phạm vi của dữ liệu huấn luyện. Giá dự đoán luôn bị chặn bởi giá trị min/max trong tập huấn luyện.</td>
+                                    <td class="px-6 py-4 align-top">Kém. Tương tự Random Forest, bị giới hạn bởi các giá trị đã thấy. Đây là một điểm yếu cố hữu của các mô hình dựa trên cây.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                
+                ---
+
+                <section>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">5. Các Phân Tích Trực Quan và Code Minh Họa</h2>
+                    <p>
+                        Cách tốt nhất để so sánh là nhìn vào kết quả thực tế trên tập dữ liệu kiểm tra (test set). Các biểu đồ dưới đây có thể được tái tạo bằng code Python.
+                    </p>
+
+                    <h3 class="text-xl font-semibold text-gray-800 mt-6 mb-2">5.1. So sánh Dự đoán và Giá trị Thực tế</h3>
+                    <p>
+                        Biểu đồ này vẽ giá trị thực tế của vàng và giá trị dự đoán bởi hai mô hình. Chúng ta muốn xem đường dự đoán nào bám sát đường thực tế hơn. Bạn có thể xem biểu đồ tương tác này trực tiếp trên trang chủ.
+                    </p>
+                    <span class="code-label">Code Python để vẽ biểu đồ so sánh dự đoán</span>
+                    <pre><code>import plotly.graph_objects as go
+import pandas as pd
+
+# Giả sử y_test, y_pred_rf, y_pred_xgb đã có từ quá trình huấn luyện
+# y_test là một pandas Series với index là ngày tháng
+
+fig = go.Figure()
+fig.add_trace(go.Scatter(
+    x=y_test.index, y=y_test, name='Giá Thực Tế',
+    line=dict(color='blue', width=2)
+))
+fig.add_trace(go.Scatter(
+    x=y_test.index, y=y_pred_rf, name='Dự Đoán (Random Forest)',
+    line=dict(color='green', width=2, dash='dash')
+))
+fig.add_trace(go.Scatter(
+    x=y_test.index, y=y_pred_xgb, name='Dự Đoán (XGBoost)',
+    line=dict(color='red', width=2, dash='dash')
+))
+fig.update_layout(
+    title='So Sánh Dự Đoán: Random Forest vs. XGBoost',
+    xaxis_title='Ngày',
+    yaxis_title='Giá (USD/oz)'
+)
+fig.show()</code></pre>
+
+                    <h3 class="text-xl font-semibold text-gray-800 mt-6 mb-2">5.2. Biểu đồ Phân tán: Predicted vs. Actual</h3>
+                     <p>
+                        Đây là một cách trực quan hóa hiệu quả khác. Chúng ta vẽ các điểm với trục hoành là giá thực tế và trục tung là giá dự đoán. Một mô hình hoàn hảo sẽ có tất cả các điểm nằm trên đường thẳng y = x. Các điểm càng gần đường này, mô hình càng chính xác.
+                    </p>
+                    <span class="code-label">Code Python để vẽ biểu đồ phân tán</span>
+                    <pre><code>import plotly.graph_objects as go
+
+# Giả sử y_test, y_pred_rf, y_pred_xgb đã có
+
+fig = go.Figure()
+# Thêm đường tham chiếu y=x
+min_val = min(y_test.min(), y_pred_rf.min(), y_pred_xgb.min())
+max_val = max(y_test.max(), y_pred_rf.max(), y_pred_xgb.max())
+fig.add_shape(type='line', x0=min_val, y0=min_val, x1=max_val, y1=max_val, line=dict(color='grey', dash='dash'))
+
+# Thêm điểm dự đoán
+fig.add_trace(go.Scatter(
+    x=y_test, y=y_pred_rf, mode='markers', name='Random Forest',
+    marker=dict(color='rgba(0, 128, 0, 0.5)') # Green transparent
+))
+fig.add_trace(go.Scatter(
+    x=y_test, y=y_pred_xgb, mode='markers', name='XGBoost',
+    marker=dict(color='rgba(255, 0, 0, 0.5)') # Red transparent
+))
+fig.update_layout(
+    title='Biểu đồ Phân tán: Giá Dự đoán vs. Giá Thực tế',
+    xaxis_title='Giá Thực tế (USD/oz)',
+    yaxis_title='Giá Dự đoán (USD/oz)',
+    legend_title='Mô hình'
+)
+fig.show()</code></pre>
+
+                    <h3 class="text-xl font-semibold text-gray-800 mt-6 mb-2">5.3. Mức độ Quan trọng của Đặc trưng (Feature Importance)</h3>
+                    <p>
+                        Biểu đồ này cho thấy mỗi mô hình "coi trọng" đặc trưng nào nhất khi đưa ra dự đoán. Ví dụ, cả hai mô hình có thể đều đồng ý rằng `GOLD_PRICE_lag1` (giá vàng ngày hôm qua) là quan trọng nhất, nhưng mức độ quan trọng có thể khác nhau. Việc so sánh hai biểu đồ này cho ta biết liệu các mô hình có "suy nghĩ" giống nhau không. Các biểu đồ này cũng có sẵn trên trang chủ.
+                    </p>
+                     <span class="code-label">Code Python để vẽ Feature Importance</span>
+                    <pre><code>import plotly.graph_objects as go
+import pandas as pd
+
+# Giả sử model_rf, model_xgb, và features_columns đã có
+importances_rf = model_rf.feature_importances_
+importances_xgb = model_xgb.feature_importances_
+df_importance_rf = pd.DataFrame({'feature': features_columns, 'importance': importances_rf}).sort_values('importance')
+df_importance_xgb = pd.DataFrame({'feature': features_columns, 'importance': importances_xgb}).sort_values('importance')
+
+# Vẽ cho Random Forest
+fig_rf = go.Figure(go.Bar(x=df_importance_rf['importance'], y=df_importance_rf['feature'], orientation='h'))
+fig_rf.update_layout(title='Feature Importance - Random Forest')
+fig_rf.show()
+
+# Vẽ cho XGBoost
+fig_xgb = go.Figure(go.Bar(x=df_importance_xgb['importance'], y=df_importance_xgb['feature'], orientation='h'))
+fig_xgb.update_layout(title='Feature Importance - XGBoost')
+fig_xgb.show()</code></pre>
+                </section>
+                
+                ---
+
+                <section>
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-3">6. Kết Luận</h2>
+                    <p>
+                        Trong dự án này, kết quả trên tập kiểm tra (bạn có thể xem ở đầu trang chủ) cho thấy mô hình <strong>{{ model_comparison.best_model }}</strong> có chỉ số <strong>RMSE thấp hơn</strong>, cho thấy nó dự đoán chính xác hơn một chút trong bối cảnh dữ liệu này.
+                    </p>
+                    <p class="mt-2">
+                        Tuy nhiên, điều này không có nghĩa là XGBoost luôn tốt hơn Random Forest hay ngược lại.
+                        <ul>
+                            <li><strong>Random Forest</strong> là một lựa chọn tuyệt vời, mạnh mẽ, dễ sử dụng và khó bị "hỏng". Nó là một baseline tuyệt vời và thường cho kết quả rất tốt mà không cần tinh chỉnh nhiều.</li>
+                            <li><strong>XGBoost</strong> thường có khả năng đạt được độ chính xác nhỉnh hơn một chút, nhưng đòi hỏi sự tinh chỉnh cẩn thận hơn về các siêu tham số (hyperparameters) như `learning_rate`, `max_depth`, `gamma`... để tránh overfitting.</li>
+                        </ul>
+                    </p>
+                     <p class="mt-2">
+                        Sự lựa chọn cuối cùng giữa hai thuật toán thường phụ thuộc vào bài toán cụ thể, yêu cầu về độ chính xác, và thời gian dành cho việc tinh chỉnh mô hình.
+                    </p>
+                </section>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

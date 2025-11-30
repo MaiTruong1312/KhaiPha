@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full bg-gray-100">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phân Tích Lịch Sử Chuyên Sâu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+</head>
+<body class="h-full font-sans text-gray-800">
+    <div class="w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <div class="flex justify-between items-center border-b pb-4 mb-6">
+            <h1 class="text-3xl font-bold text-gray-900">
+                Phân Tích Lịch Sử Chuyên Sâu
+            </h1>
+            <a href="/" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition">
+                ← Quay lại Bảng điều khiển
+            </a>
+        </div>
+
+        <!-- Vùng điều khiển -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-8">
+            <form action="/history" method="GET">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Cột 1: Chọn chuỗi dữ liệu -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">1. Chọn Yếu Tố So Sánh</h3>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" name="series" value="gold" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    {{ 'checked' if 'gold' in selected_series }}>
+                                <span class="ml-2 text-gray-700">Giá Vàng</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="series" value="silver" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    {{ 'checked' if 'silver' in selected_series }}>
+                                <span class="ml-2 text-gray-700">Giá Bạc</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="series" value="ratio" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    {{ 'checked' if 'ratio' in selected_series }}>
+                                <span class="ml-2 text-gray-700">Tỷ lệ Vàng/Bạc</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="series" value="gprd" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    {{ 'checked' if 'gprd' in selected_series }}>
+                                <span class="ml-2 text-gray-700">Chỉ số Rủi ro Địa chính trị (GPRD)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Cột 2: Chọn đường MA -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">2. Thêm Phân Tích Kỹ Thuật (cho Vàng)</h3>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" name="ma" value="30" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    {{ 'checked' if '30' in selected_mas }}>
+                                <span class="ml-2 text-gray-700">Trung bình động 30 ngày (MA30)</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="ma" value="90" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    {{ 'checked' if '90' in selected_mas }}>
+                                <span class="ml-2 text-gray-700">Trung bình động 90 ngày (MA90)</span>
+                            </label>
+                             <label class="flex items-center">
+                                <input type="checkbox" name="ma" value="200" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    {{ 'checked' if '200' in selected_mas }}>
+                                <span class="ml-2 text-gray-700">Trung bình động 200 ngày (MA200)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Cột 3: Tùy chọn và Action -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-3">3. Tùy Chọn Hiển Thị</h3>
+                        <div class="space-y-3">
+                            <label class="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                <input type="checkbox" name="normalize" value="true" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    {{ 'checked' if is_normalized }}>
+                                <div class="ml-3">
+                                    <strong class="font-medium text-gray-900">Chuẩn hóa Dữ liệu</strong>
+                                    <p class="text-xs text-gray-500">Hiển thị thay đổi theo % để so sánh các thang đo khác nhau.</p>
+                                </div>
+                            </label>
+                            <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
+                                Vẽ lại Biểu đồ
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Vùng hiển thị biểu đồ -->
+        <div class="bg-white p-2 sm:p-4 rounded-lg shadow-lg">
+             <div id="chart-history" class="w-full h-[600px]"></div>
+        </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const config = { responsive: true };
+        try {
+            const chartData = {{ chart_json | safe }};
+            Plotly.newPlot("chart-history", chartData, config);
+        } catch(e) {
+            console.error("Lỗi khi render biểu đồ Plotly:", e);
+            document.getElementById("chart-history").innerText = "Đã xảy ra lỗi khi tải biểu đồ. Vui lòng kiểm tra lại lựa chọn của bạn hoặc dữ liệu đầu vào.";
+        }
+      });
+    </script>
+</body>
+</html>

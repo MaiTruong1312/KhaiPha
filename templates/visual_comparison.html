@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full bg-gray-100">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>So Sánh Trực Quan các Mô Hình</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+</head>
+<body class="h-full font-sans text-gray-800">
+    <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <div class="flex justify-between items-center border-b pb-4 mb-6">
+            <h1 class="text-3xl font-bold text-gray-900">
+                So Sánh Trực Quan: Random Forest vs. XGBoost
+            </h1>
+            <a href="/" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition">
+                ← Quay lại Bảng điều khiển
+            </a>
+        </div>
+
+        <!-- Dropdown to select model -->
+        <div class="mb-6 bg-white p-4 rounded-lg shadow">
+            <label for="model_selector" class="block text-sm font-medium text-gray-700">Chọn mô hình để xem chi tiết các biểu đồ phụ thuộc:</label>
+            <select id="model_selector" name="model_selector" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md" onchange="window.location.href = '/visual_comparison?model=' + this.value">
+                {% for model in model_names %}
+                    <option value="{{ model }}" {{ 'selected' if selected_model == model }}>{{ model }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Chart 1: Metrics Comparison -->
+            <div class="bg-white p-6 rounded-lg shadow-lg border col-span-1 lg:col-span-2">
+                <div id="chart-metrics" class="w-full h-[500px]"></div>
+            </div>
+
+            <!-- Chart 2: Prediction Comparison -->
+            <div class="bg-white p-6 rounded-lg shadow-lg border">
+                <div id="chart-pred" class="w-full h-[500px]"></div>
+            </div>
+
+            <!-- Chart 3: Scatter Correlation -->
+            <div class="bg-white p-6 rounded-lg shadow-lg border">
+                <div id="chart-scatter" class="w-full h-[500px]"></div>
+            </div>
+
+            <!-- Chart 4: Residuals Distribution -->
+            <div class="bg-white p-6 rounded-lg shadow-lg border col-span-1 lg:col-span-2">
+                 <div id="chart-residuals" class="w-full h-[500px]"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const config = { responsive: true };
+        try {
+            Plotly.newPlot("chart-metrics", {{ chart_metrics_json | safe }}, config);
+            Plotly.newPlot("chart-pred", {{ chart_pred_json | safe }}, config);
+            Plotly.newPlot("chart-scatter", {{ chart_scatter_json | safe }}, config);
+            Plotly.newPlot("chart-residuals", {{ chart_residuals_json | safe }}, config);
+        } catch(e) {
+            console.error("Lỗi khi render biểu đồ Plotly:", e);
+        }
+      });
+    </script>
+</body>
+</html>
